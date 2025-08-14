@@ -783,7 +783,7 @@ GameObject:
   - component: {fileID: 174041678}
   - component: {fileID: 174041677}
   m_Layer: 0
-  m_Name: PointMultiplier
+  m_Name: LevelLabel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3598,7 +3598,7 @@ GameObject:
   - component: {fileID: 905708589}
   m_Layer: 0
   m_Name: UI
-  m_TagString: Untagged
+  m_TagString: UI
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4651,7 +4651,7 @@ GameObject:
   - component: {fileID: 1101804856}
   - component: {fileID: 1101804855}
   m_Layer: 0
-  m_Name: Score
+  m_Name: ScoreLabel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5500,7 +5500,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1286113416}
   m_Layer: 0
-  m_Name: IngameUI
+  m_Name: GamePlay
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

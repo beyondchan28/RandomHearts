@@ -27,23 +27,6 @@ public class Game : MonoBehaviour
         Blue,
     }
 
-    public class ErasedHeart
-    {
-        public int amount;
-        public int highestColumnNumber;
-        public ErasedHeart() { }
-        public ErasedHeart(int cn)
-        {
-            highestColumnNumber = cn;
-        }
-
-        public void SetHighestColumn(int nc)
-        {
-            highestColumnNumber = nc;
-            amount += 1;
-        }
-    }
-
     public class GameData
     {
         public Dictionary<HeartColor, int> heartColorAmount;
@@ -148,22 +131,18 @@ public class Game : MonoBehaviour
 
     public Dictionary<HeartColor, Sprite> heartSprites = new Dictionary<HeartColor, Sprite>();
     private Dictionary<int, List<HeartData>> heartData = new Dictionary<int, List<HeartData>>();
-    private Dictionary<int, ErasedHeart> erasedHeartData = new Dictionary<int, ErasedHeart>()
-    {
-        // row, highestColumn
-        {0, new ErasedHeart(-1)},
-        {1, new ErasedHeart(-1)},
-        {2, new ErasedHeart(-1)},
-        {3, new ErasedHeart(-1)},
-        {4, new ErasedHeart(-1)},
-        {5, new ErasedHeart(-1)},
-        {6, new ErasedHeart(-1)},
-    };
     private List<HeartData> linkedHearts = new List<HeartData>();
 
     private GameObject[] heartRows;
     private GameData gameData = new GameData();
 
+    private GameObject parentUI;
+    private GameObject pointLabelUI;
+    private GameObject pointMultiplierUI;
+    private GameObject creditLabelUI;
+    private GameObject levelLabelUI;
+    private GameObject timeLabelUI;
+    private GameObject scoreLabelUI;
     /**
         total hearts = 7 x 8 = 56
         max yellow = 22
@@ -181,6 +160,69 @@ public class Game : MonoBehaviour
     const int MAX_BLUE = 3;
     void Start()
     {
+        // Setup gameData
+        gameData.heartColorAmount = new Dictionary<HeartColor, int>();
+        gameData.level = 1;
+        gameData.credit = 10;
+        gameData.score = 0;
+        gameData.payoutMultiplier = 1.0f;
+        gameData.experience = 0;
+        gameData.totalTimeLeft = 60; // Time per round
+
+        // Get and Set UI
+        parentUI = GameObject.FindWithTag("UI");
+        foreach (Transform uit in parentUI.transform)
+        {
+            if (uit.name == "Point")
+            {
+                foreach (Transform cuit in uit)
+                {
+                    if (cuit.name == "PointLabel")
+                    {
+                        pointLabelUI = cuit.gameObject;
+                        pointLabelUI.GetComponent<Text>().text = gameData.earning.ToString();
+                    }
+                    if (cuit.name == "PointMultiplier")
+                    {
+                        pointMultiplierUI = cuit.gameObject;
+                        pointMultiplierUI.GetComponent<Text>().text = $"Skor multiplier: {gameData.payoutMultiplier.ToString()}x";
+                    }
+                }
+            }
+            else if (uit.name == "Credit")
+            {
+                foreach (Transform cuit in uit)
+                {
+                    if (cuit.name == "CreditLabel")
+                    {
+                        creditLabelUI = cuit.gameObject;
+                        creditLabelUI.GetComponent<Text>().text = $"{gameData.credit.ToString()}/100";
+                    }
+                    if (cuit.name == "LevelLabel")
+                    {
+                        levelLabelUI = cuit.gameObject;
+                        levelLabelUI.GetComponent<Text>().text = $"Level: {gameData.level.ToString()}";
+                    }
+                }
+            }
+            else if (uit.name == "GamePlay")
+            {
+                foreach (Transform cuit in uit)
+                {
+                    if (cuit.name == "TimeLabel")
+                    {
+                        timeLabelUI = cuit.gameObject;
+                        timeLabelUI.GetComponent<Text>().text = $"Time Left\n{gameData.totalTimeLeft.ToString()}";
+                    }
+                    if (cuit.name == "ScoreLabel")
+                    {
+                        scoreLabelUI = cuit.gameObject;
+                        scoreLabelUI.GetComponent<Text>().text = $"Score : {gameData.score.ToString()}";
+                    }
+                }
+            }
+        }
+
         // Setup sprite
         foreach (HeartColor hc in System.Enum.GetValues(typeof(HeartColor)))
         {
@@ -207,16 +249,6 @@ public class Game : MonoBehaviour
             }
             heartSprites.Add(hc, loadedHeartSprite);
         }
-
-        // Setup gameData
-        gameData.heartColorAmount = new Dictionary<HeartColor, int>();
-        gameData.level = 1;
-        gameData.credit = 10;
-        gameData.score = 0;
-        gameData.payoutMultiplier = 1.0f;
-        gameData.experience = 0;
-        gameData.totalTimeLeft = 60; // Time per round
-
 
         // Setup heartData
         heartRows = GameObject.FindGameObjectsWithTag("Row");
@@ -386,57 +418,22 @@ public class Game : MonoBehaviour
             gameData.score += 1;
         }
         Debug.Log("Current Score : " + gameData.score);
-        
+
 
         foreach (HeartData d in linkedHearts)
         {
             // Debug.Log(d.id);
             d.SetActive(false);
 
-            ReduceHeartCountBasedOnColor(d.color); // reduce 
-
-            // collapsing above color to be on the new spot
-            if (erasedHeartData[d.rowNumber].highestColumnNumber < d.columnNumber)
-            {
-                erasedHeartData[d.rowNumber].SetHighestColumn(d.columnNumber);
-            }
+            // ReduceHeartCountBasedOnColor(d.color); // reduce 
+            HeartColor changedColor = RandomHeartColorBasedOnWeight(); 
+            d.SetColor(changedColor, heartSprites);
+            d.SetActive(true); // show new heart image 
+            
             /// Change erased hearts color, sprite, and basePoint
             // do transition animation
-            // d.SetActive(true); // show new heart image 
         }
 
-        foreach (var erasedData in erasedHeartData)
-        {
-            if (erasedData.Value.highestColumnNumber == -1)
-            {
-                continue;
-            }
-            int colNum = erasedData.Value.highestColumnNumber;
-            int rowNum = erasedData.Key; 
-            HeartData highestErasedColHeartData = heartData[erasedData.Value.highestColumnNumber][erasedData.Key];
-            HeartData topHeartData = null;
-            if (colNum == 0)
-            {
-                HeartColor c = RandomHeartColorBasedOnWeight();
-                highestErasedColHeartData.SetColor(c, heartSprites);
-            }
-            else if (colNum > 0 && colNum - erasedData.Value.amount >= 0)
-            {
-                topHeartData = heartData[colNum - erasedData.Value.amount][rowNum];
-                highestErasedColHeartData.SetColor(topHeartData.color, heartSprites);
-                highestErasedColHeartData.SetActive(true);
-            }
-            for (int i = colNum - 1; i >= colNum - erasedData.Value.amount; i -= 1)
-            {
-                HeartColor c = RandomHeartColorBasedOnWeight();
-                Debug.Log(c);
-                heartData[i][rowNum].SetColor(c, heartSprites);
-                heartData[i][rowNum].SetActive(true);
-            }
-            // reset the data
-            erasedData.Value.amount = 0;
-            erasedData.Value.highestColumnNumber = -1;
-        }
         linkedHearts.Clear();
     }
 
