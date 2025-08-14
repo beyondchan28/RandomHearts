@@ -7,15 +7,6 @@ using Unity.Android.Gradle;
 using UnityEngine.Rendering.Universal;
 using Unity.VisualScripting;
 
-/**
-To-Do List:
-- [] Data Layout
-    + Almost Done
-- [] Gameplay
-- [] UI
-- [] Polishing
-**/
-
 public class Game : MonoBehaviour
 {
     public enum HeartColor
@@ -36,7 +27,7 @@ public class Game : MonoBehaviour
         public int score;
         public float payoutMultiplier;
         public int earning;
-        public int totalTimeLeft;
+        public float totalTimeLeft;
 
         public int yellowHeartCount;
         public int redHeartCount;
@@ -69,16 +60,12 @@ public class Game : MonoBehaviour
             }
         }
 
-        public void DecreaseTimeLeft()
+        public void WhenTimeOut()
         {
-            totalTimeLeft -= 1;
-            if (totalTimeLeft == 0)
-            {
-                Debug.Log("This round is done");
-                earning += score * (int)payoutMultiplier;
-                totalTimeLeft = TIME_PER_ROUND;
-                score = 0;
-            }
+            Debug.Log("This round is done");
+            earning += score * (int)payoutMultiplier;
+            totalTimeLeft = TIME_PER_ROUND;
+            score = 0;
         }
     }
     public class HeartData
@@ -163,11 +150,13 @@ public class Game : MonoBehaviour
         // Setup gameData
         gameData.heartColorAmount = new Dictionary<HeartColor, int>();
         gameData.level = 1;
-        gameData.credit = 10;
+        gameData.credit = 90;
         gameData.score = 0;
         gameData.payoutMultiplier = 1.0f;
         gameData.experience = 0;
-        gameData.totalTimeLeft = 60; // Time per round
+        gameData.totalTimeLeft = 60.0f; // Time per round
+
+        gameData.WhenGameJustStart();
 
         // Get and Set UI
         parentUI = GameObject.FindWithTag("UI");
@@ -274,8 +263,8 @@ public class Game : MonoBehaviour
             heartData.Add(heartButtons[0].columnNumber, heartButtons);
 
         }
-        Debug.Log("Col Amount : " + heartData.Count);
-        Debug.Log("Row Amount : " + heartData[0].Count);
+        // Debug.Log("Col Amount : " + heartData.Count);
+        // Debug.Log("Row Amount : " + heartData[0].Count);
     }
 
     public HeartColor PickRandomHeartWithWeight()
@@ -290,7 +279,7 @@ public class Game : MonoBehaviour
 
     private HeartColor RandomHeartColorBasedOnWeight()
     {
-        float rnd = ((float) Random.Range(2, 20)) * 0.5f;
+        float rnd = ((float)Random.Range(2, 20)) * 0.5f;
         if (rnd >= 1.0f || rnd < 4.0f)
         {
             return HeartColor.Yellow;
@@ -426,15 +415,16 @@ public class Game : MonoBehaviour
             d.SetActive(false);
 
             // ReduceHeartCountBasedOnColor(d.color); // reduce 
-            HeartColor changedColor = RandomHeartColorBasedOnWeight(); 
+            HeartColor changedColor = RandomHeartColorBasedOnWeight();
             d.SetColor(changedColor, heartSprites);
             d.SetActive(true); // show new heart image 
-            
+
             /// Change erased hearts color, sprite, and basePoint
             // do transition animation
         }
 
         linkedHearts.Clear();
+        UpdateUI(); // updating UI
     }
 
     private List<HeartData> FindNeighbourHearts(HeartData hd)
@@ -469,7 +459,7 @@ public class Game : MonoBehaviour
             {
                 CompareAndAddHeartColor(neighbourHearts, hd, leftData);
             }
-            
+
         }
         if (right <= heartData.Last().Value.Count - 1)
         {
@@ -502,6 +492,46 @@ public class Game : MonoBehaviour
         if (cd.color.Equals(d.color))
         {
             ld.Add(d);
+        }
+    }
+
+    private void UpdateUI()
+    {
+        pointLabelUI.GetComponent<Text>().text = gameData.earning.ToString();
+        pointMultiplierUI.GetComponent<Text>().text = $"Skor multiplier: {gameData.payoutMultiplier.ToString()}x";
+        creditLabelUI.GetComponent<Text>().text = $"{gameData.credit.ToString()}/100";
+        levelLabelUI.GetComponent<Text>().text = $"Level: {gameData.level.ToString()}";
+        scoreLabelUI.GetComponent<Text>().text = $"Score : {gameData.score.ToString()}";
+    }
+
+    // Timer implementation
+    void Update()
+    {
+        gameData.totalTimeLeft -= Time.deltaTime;
+
+        timeLabelUI.GetComponent<Text>().text = $"Time Left\n{((int)gameData.totalTimeLeft).ToString()}";
+        // when timeout
+        if (gameData.totalTimeLeft <= 0.0f)
+        {
+            gameData.WhenTimeOut();
+            UpdateUI();
+
+            // reset heart count
+            gameData.yellowHeartCount = 0;
+            gameData.greenHeartCount = 0;
+            gameData.blackHeartCount = 0;
+            gameData.redHeartCount = 0;
+            gameData.blueHeartCount = 0;
+
+            // reset the grid
+            foreach (int k in heartData.Keys)
+            {
+                for (int i = 0; i < heartData.Values.Count; i += 1)
+                {
+                    heartData[k][i].SetColor(PickRandomHeartWithWeight(), heartSprites);
+                }
+            }
+
         }
     }
 }
