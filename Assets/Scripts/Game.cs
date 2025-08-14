@@ -27,7 +27,22 @@ public class Game : MonoBehaviour
         Blue,
     }
 
-    // public struct Collap
+    public class ErasedHeart
+    {
+        public int amount;
+        public int highestColumnNumber;
+        public ErasedHeart() { }
+        public ErasedHeart(int cn)
+        {
+            highestColumnNumber = cn;
+        }
+
+        public void SetHighestColumn(int nc)
+        {
+            highestColumnNumber = nc;
+            amount += 1;
+        }
+    }
 
     public class GameData
     {
@@ -82,10 +97,6 @@ public class Game : MonoBehaviour
                 score = 0;
             }
         }
-
-        //TODO: calculate score based on total linked hearts
-        //TODO: randomize spawned hearts based on its weight and current total amount of cards per HearColor inside the grid
-        //TODO?: calculate weight based on HeartColor 
     }
     public class HeartData
     {
@@ -137,6 +148,17 @@ public class Game : MonoBehaviour
 
     public Dictionary<HeartColor, Sprite> heartSprites = new Dictionary<HeartColor, Sprite>();
     private Dictionary<int, List<HeartData>> heartData = new Dictionary<int, List<HeartData>>();
+    private Dictionary<int, ErasedHeart> erasedHeartData = new Dictionary<int, ErasedHeart>()
+    {
+        // row, highestColumn
+        {0, new ErasedHeart(-1)},
+        {1, new ErasedHeart(-1)},
+        {2, new ErasedHeart(-1)},
+        {3, new ErasedHeart(-1)},
+        {4, new ErasedHeart(-1)},
+        {5, new ErasedHeart(-1)},
+        {6, new ErasedHeart(-1)},
+    };
     private List<HeartData> linkedHearts = new List<HeartData>();
 
     private GameObject[] heartRows;
@@ -234,6 +256,31 @@ public class Game : MonoBehaviour
         return hc;
     }
 
+    private HeartColor RandomHeartColorBasedOnWeight()
+    {
+        float rnd = ((float) Random.Range(2, 20)) * 0.5f;
+        if (rnd >= 1.0f || rnd < 4.0f)
+        {
+            return HeartColor.Yellow;
+        }
+        else if (rnd >= 4.0f || rnd < 6.5f)
+        {
+            return HeartColor.Green;
+        }
+        else if (rnd >= 6.5f || rnd < 8.5f)
+        {
+            return HeartColor.Black;
+        }
+        else if (rnd >= 8.5f || rnd < 9.5f)
+        {
+            return HeartColor.Red;
+        }
+        else
+        {
+            return HeartColor.Blue;
+        }
+    }
+
     private bool CheckHeartCount(HeartColor hc)
     {
         if (hc == HeartColor.Yellow && gameData.yellowHeartCount < MAX_YELLOW)
@@ -272,26 +319,26 @@ public class Game : MonoBehaviour
 
     public void ReduceHeartCountBasedOnColor(HeartColor hc)
     {
-        if (hc == HeartColor.Yellow && gameData.yellowHeartCount < MAX_YELLOW)
+        if (hc == HeartColor.Yellow)
         {
             gameData.yellowHeartCount -= 1;
         }
-        else if (hc == HeartColor.Green && gameData.greenHeartCount < MAX_GREEN)
+        else if (hc == HeartColor.Green)
         {
             gameData.greenHeartCount -= 1;
 
         }
-        else if (hc == HeartColor.Black && gameData.blackHeartCount < MAX_BLACK)
+        else if (hc == HeartColor.Black)
         {
             gameData.blackHeartCount -= 1;
 
         }
-        else if (hc == HeartColor.Red && gameData.redHeartCount < MAX_RED)
+        else if (hc == HeartColor.Red)
         {
             gameData.redHeartCount -= 1;
 
         }
-        else if (hc == HeartColor.Blue && gameData.blueHeartCount < MAX_BLUE)
+        else if (hc == HeartColor.Blue)
         {
             gameData.blueHeartCount -= 1;
         }
@@ -312,7 +359,7 @@ public class Game : MonoBehaviour
         linkedHearts.Add(hd); // include the pressed heart
         List<HeartData> nh = FindNeighbourHearts(hd);
 
-        // after the first neighbour founc, search chaining heart across the grid
+        // after the first neighbour found, search chaining heart across the grid
         while (nh.Count != 0)
         {
             List<HeartData> newNH = new List<HeartData>();
@@ -324,37 +371,71 @@ public class Game : MonoBehaviour
             }
             nh = newNH;
         }
+
+        // calculate point
+        if (linkedHearts.Count > 3)
+        {
+            gameData.score += 1 + linkedHearts[0].basePoint + BasePointIncrementByOne(linkedHearts[0].basePoint, linkedHearts.Count - 2);
+        }
+        else if (linkedHearts.Count == 3)
+        {
+            gameData.score += 1 + linkedHearts[0].basePoint;
+        }
+        else if (linkedHearts.Count == 2)
+        {
+            gameData.score += 1;
+        }
+        Debug.Log("Current Score : " + gameData.score);
         
 
         foreach (HeartData d in linkedHearts)
         {
-            Debug.Log(d.id);
+            // Debug.Log(d.id);
             d.SetActive(false);
-            // calculate point
-            if (linkedHearts.Count > 3)
-            {
-                gameData.score += 1 + d.basePoint + BasePointIncrementByOne(d.basePoint, linkedHearts.Count - 2);
-            }
-            else if (linkedHearts.Count == 3)
-            {
-                gameData.score += 1 + d.basePoint;
-            }
-            else if (linkedHearts.Count == 2)
-            {
-                gameData.score += 1;
-            }
 
             ReduceHeartCountBasedOnColor(d.color); // reduce 
+
             // collapsing above color to be on the new spot
-            // foreach (int hdKey in heartData.Keys)
-            // {
-
-            // }
-            // d.SetColor(PickRandomHeartWithWeight(), heartSprites); // Change erased hearts and new point
+            if (erasedHeartData[d.rowNumber].highestColumnNumber < d.columnNumber)
+            {
+                erasedHeartData[d.rowNumber].SetHighestColumn(d.columnNumber);
+            }
+            /// Change erased hearts color, sprite, and basePoint
             // do transition animation
-            d.SetActive(true); // show new heart image 
+            // d.SetActive(true); // show new heart image 
+        }
 
-
+        foreach (var erasedData in erasedHeartData)
+        {
+            if (erasedData.Value.highestColumnNumber == -1)
+            {
+                continue;
+            }
+            int colNum = erasedData.Value.highestColumnNumber;
+            int rowNum = erasedData.Key; 
+            HeartData highestErasedColHeartData = heartData[erasedData.Value.highestColumnNumber][erasedData.Key];
+            HeartData topHeartData = null;
+            if (colNum == 0)
+            {
+                HeartColor c = RandomHeartColorBasedOnWeight();
+                highestErasedColHeartData.SetColor(c, heartSprites);
+            }
+            else if (colNum > 0 && colNum - erasedData.Value.amount >= 0)
+            {
+                topHeartData = heartData[colNum - erasedData.Value.amount][rowNum];
+                highestErasedColHeartData.SetColor(topHeartData.color, heartSprites);
+                highestErasedColHeartData.SetActive(true);
+            }
+            for (int i = colNum - 1; i >= colNum - erasedData.Value.amount; i -= 1)
+            {
+                HeartColor c = RandomHeartColorBasedOnWeight();
+                Debug.Log(c);
+                heartData[i][rowNum].SetColor(c, heartSprites);
+                heartData[i][rowNum].SetActive(true);
+            }
+            // reset the data
+            erasedData.Value.amount = 0;
+            erasedData.Value.highestColumnNumber = -1;
         }
         linkedHearts.Clear();
     }
