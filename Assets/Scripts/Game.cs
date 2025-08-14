@@ -27,7 +27,9 @@ public class Game : MonoBehaviour
         Blue,
     }
 
-    public struct GameData
+    // public struct Collap
+
+    public class GameData
     {
         public Dictionary<HeartColor, int> heartColorAmount;
         public int credit;
@@ -75,8 +77,9 @@ public class Game : MonoBehaviour
             if (totalTimeLeft == 0)
             {
                 Debug.Log("This round is done");
-                earning = score * (int)payoutMultiplier;
+                earning += score * (int)payoutMultiplier;
                 totalTimeLeft = TIME_PER_ROUND;
+                score = 0;
             }
         }
 
@@ -84,7 +87,7 @@ public class Game : MonoBehaviour
         //TODO: randomize spawned hearts based on its weight and current total amount of cards per HearColor inside the grid
         //TODO?: calculate weight based on HeartColor 
     }
-    public struct HeartData
+    public class HeartData
     {
         public int id;
         public bool active;
@@ -123,6 +126,7 @@ public class Game : MonoBehaviour
         public void SetActive(bool b)
         {
             active = b;
+            gameObject.GetComponent<Image>().enabled = b;
         }
 
         public bool GetActive()
@@ -210,7 +214,7 @@ public class Game : MonoBehaviour
                 data.columnNumber = r.transform.GetSiblingIndex();
                 data.rowNumber = heartsButtonTransform.GetSiblingIndex();
                 data.SetColor(PickRandomHeartWithWeight(), heartSprites);
-                heartButton.GetComponent<Button>().onClick.AddListener(() => ButtonPressed(ref data));
+                heartButton.GetComponent<Button>().onClick.AddListener(() => ButtonPressed(data));
                 heartButtons.Add(data);
             }
             heartData.Add(heartButtons[0].columnNumber, heartButtons);
@@ -266,9 +270,37 @@ public class Game : MonoBehaviour
         }
     }
 
-    public void ButtonPressed(ref HeartData data)
+    public void ReduceHeartCountBasedOnColor(HeartColor hc)
+    {
+        if (hc == HeartColor.Yellow && gameData.yellowHeartCount < MAX_YELLOW)
+        {
+            gameData.yellowHeartCount -= 1;
+        }
+        else if (hc == HeartColor.Green && gameData.greenHeartCount < MAX_GREEN)
+        {
+            gameData.greenHeartCount -= 1;
+
+        }
+        else if (hc == HeartColor.Black && gameData.blackHeartCount < MAX_BLACK)
+        {
+            gameData.blackHeartCount -= 1;
+
+        }
+        else if (hc == HeartColor.Red && gameData.redHeartCount < MAX_RED)
+        {
+            gameData.redHeartCount -= 1;
+
+        }
+        else if (hc == HeartColor.Blue && gameData.blueHeartCount < MAX_BLUE)
+        {
+            gameData.blueHeartCount -= 1;
+        }
+    }
+
+    public void ButtonPressed(HeartData data)
     {
         Debug.Log(data.GetActive());
+        Debug.Log("Button Col/Row : " + data.columnNumber + "/" + data.rowNumber);
         if (data.GetActive() == true)
         {
             DetermineLinkedHearts(data);
@@ -279,11 +311,6 @@ public class Game : MonoBehaviour
     {
         linkedHearts.Add(hd); // include the pressed heart
         List<HeartData> nh = FindNeighbourHearts(hd);
-        foreach (HeartData d in nh)
-        {
-            Debug.Log("N id : " + d.id);
-            Debug.Log("N col,row : " + d.columnNumber + "," + d.rowNumber);
-        }
 
         // after the first neighbour founc, search chaining heart across the grid
         while (nh.Count != 0)
@@ -297,13 +324,37 @@ public class Game : MonoBehaviour
             }
             nh = newNH;
         }
+        
 
-        for (int i = 0; i < linkedHearts.Count - 1; i += 1)
+        foreach (HeartData d in linkedHearts)
         {
-            Debug.Log(linkedHearts[i].id);
+            Debug.Log(d.id);
+            d.SetActive(false);
             // calculate point
-            linkedHearts[i].SetActive(false); 
-            linkedHearts[i].gameObject.GetComponent<Image>().enabled = false;
+            if (linkedHearts.Count > 3)
+            {
+                gameData.score += 1 + d.basePoint + BasePointIncrementByOne(d.basePoint, linkedHearts.Count - 2);
+            }
+            else if (linkedHearts.Count == 3)
+            {
+                gameData.score += 1 + d.basePoint;
+            }
+            else if (linkedHearts.Count == 2)
+            {
+                gameData.score += 1;
+            }
+
+            ReduceHeartCountBasedOnColor(d.color); // reduce 
+            // collapsing above color to be on the new spot
+            // foreach (int hdKey in heartData.Keys)
+            // {
+
+            // }
+            // d.SetColor(PickRandomHeartWithWeight(), heartSprites); // Change erased hearts and new point
+            // do transition animation
+            d.SetActive(true); // show new heart image 
+
+
         }
         linkedHearts.Clear();
     }
@@ -352,6 +403,16 @@ public class Game : MonoBehaviour
         }
 
         return neighbourHearts;
+    }
+
+    private int BasePointIncrementByOne(int basePoint, int numberOfElement)
+    {
+        int result = basePoint;
+        for (int i = 1; i != numberOfElement; i += 1)
+        {
+            result += 1;
+        }
+        return result;
     }
 
     private bool IsHeartDataFound(HeartData hd)
